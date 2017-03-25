@@ -1,0 +1,622 @@
+---
+title: "Kaggle_Home_Prices_Ames_Iowa"
+output:
+pdf_document: default
+html_document: default
+---
+
+---
+####Predict sale price of the home based on available features of the home in the dataset 
+---
+
+```{r}
+library(ggplot2)
+library(caret)
+library(scales)
+library(dummies)
+library(fmsb)
+library(pls)
+library(randomForest)
+options(max.print=999999)
+getwd()
+
+train <- read.csv("train.csv", header = TRUE, sep = ",") 
+test <- read.csv("test.csv", header = TRUE, sep = ",")
+
+# Add sale price new column in test dataset 
+test["SalePrice"] <- NA
+
+# Let's explore the structure of the data
+dim(train)
+str(train)
+
+```
+
+####The categorical variables are stored as factors in our dataframe. 
+
+```{r}
+# Combine Train and Test datasets 
+total <- rbind(train, test)
+
+# Visualize missing data using ggplot and a function from neato package in R
+
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+
+ggplot_missing <- function(x){
+
+   x %>%
+    is.na %>%
+    melt %>%
+    ggplot(data = .,
+           aes(x = Var2,
+               y = Var1)) +
+    geom_raster(aes(fill = value)) +
+    scale_fill_grey(name = "",
+                    labels = c("Present","Missing")) +
+    theme_minimal() +
+    theme(axis.text.x  = element_text(angle=45, vjust=0.5)) +
+    labs(x = "Variables in Dataset",
+         y = "Rows / observations")
+}
+
+ggplot_missing(total)
+
+
+# Check for missing values
+missing <- colSums(sapply(total, is.na))
+missing
+```
+###Data Cleaning Plan 
+
+####Let's look at each missing variables.
+
+####LotFrontage: 486 values missing. Linear feet of the street connected to property. Lot frontage, ideally, should ####correlate with Lot Area. Also, check the lot shape and configuration of missing values. 
+
+```{r}
+lotfront <- c("Id","LotFrontage","LotArea","LotShape","LotConfig")
+lotfrontdata <- total[lotfront] 
+lotfrontdataNA <- lotfrontdata[is.na(lotfrontdata$LotFrontage),]
+str(lotfrontdataNA)
+#hist(lotfrontdataNA[c("Id","LotArea","LotShape","LotConfig")])
+summary(lotfrontdataNA)
+
+lotfrontdata_na <- na.omit(lotfrontdata)
+
+plot(lotfrontdata_na$LotFrontage, lotfrontdata_na$LotArea)
+
+# We take square root of LotArea to compute correlation with LotFrontage 
+cor(lotfrontdata_na$LotFrontage, sqrt(lotfrontdata_na$LotArea))
+
+```
+
+####We see a slightly stronger correlation with Sq. root of Lot Area. However, the correlation is not very strong. We will substitute NAs for LotFrontage with mean value. 
+
+```{r}
+
+total$LotFrontage[is.na(total$LotFrontage)] <- round(mean(total$LotFrontage, na.rm = TRUE))
+
+```
+
+###                             Categorical Missing Variables. 
+                                
+####Some homes / properties do not have alley access. 
+```{r}
+total$Alley <- as.character(total$Alley)
+total$Alley[is.na(total$Alley)] <- 'None'
+total$Alley <- as.factor(total$Alley)
+```
+
+####MasVnrType: Masonry veneer walls consist of a single non-structural external layer of masonry work, typically brick, backed by an air space. Here NA means that Masonry veneer wall is not existent. 
+
+####MasVnrType and MasVnrArea have corresponding values of NA. Therefore, we set NA as None and MasVnrArea as 0. 
+```{r}
+total$MasVnrType <- as.character(total$MasVnrType)
+total$MasVnrType[is.na(total$MasVnrType)] <- 'None' 
+total$MasVnrType <- as.factor(total$MasVnrType)
+
+total$MasVnrArea <- as.numeric(total$MasVnrArea)
+total$MasVnrArea[is.na(total$MasVnrArea)] <- '0' 
+total$MasVnrArea <- as.numeric(total$MasVnrArea)
+```
+
+####According to data dictionary, BsmtQual, BsmtCond, BsmtExposure, BsmtFinType1, BsmtFinType2, FireplaceQU = NA means that the properties or homes do not have a basement.
+
+```{r}
+total$BsmtQual <- as.character(total$BsmtQual)
+total$BsmtQual[is.na(total$BsmtQual)] <- 'None' 
+total$BsmtQual <- as.factor(total$BsmtQual) 
+```
+
+```{r}
+total$BsmtCond <- as.character(total$BsmtCond)
+total$BsmtCond[is.na(total$BsmtCond)] <- 'None' 
+total$BsmtCond <- as.factor(total$BsmtCond) 
+```
+
+```{r}
+total$BsmtExposure <- as.character(total$BsmtExposure)
+total$BsmtExposure[is.na(total$BsmtExposure)] <- 'None' 
+total$BsmtExposure <- as.factor(total$BsmtExposure)
+```
+
+```{r}
+total$BsmtFinType1 <- as.character(total$BsmtFinType1)
+total$BsmtFinType1[is.na(total$BsmtFinType1)] <- 'None' 
+total$BsmtFinType1 <- as.factor(total$BsmtFinType1)
+```
+
+```{r}
+total$BsmtFinType2 <- as.character(total$BsmtFinType2)
+total$BsmtFinType2[is.na(total$BsmtFinType2)] <- 'None' 
+total$BsmtFinType2 <- as.factor(total$BsmtFinType2)
+```
+
+```{r}
+total$Electrical <- as.character(total$Electrical)
+total$Electrical[is.na(total$Electrical)] <- 'None' 
+total$Electrical <- as.factor(total$Electrical)
+```
+
+```{r}
+total$FireplaceQu <- as.character(total$FireplaceQu)
+total$FireplaceQu[is.na(total$FireplaceQu)] <- 'None' 
+total$FireplaceQu <- as.factor(total$FireplaceQu)
+```
+
+```{r}
+total$GarageType <- as.character(total$GarageType )
+total$GarageType[is.na(total$GarageType )] <- 'None' 
+total$GarageType <- as.factor(total$GarageType)
+```
+
+```{r}
+total$GarageYrBlt <- as.numeric(total$GarageYrBlt )
+total$GarageYrBlt[is.na(total$GarageYrBlt )] <- '0' 
+total$GarageYrBlt <- as.numeric(total$GarageYrBlt)
+```
+
+```{r}
+total$GarageFinish <- as.character(total$GarageFinish )
+total$GarageFinish[is.na(total$GarageFinish )] <- 'None' 
+total$GarageFinish <- as.factor(total$GarageFinish)
+```
+
+```{r}
+total$GarageQual <- as.character(total$GarageQual )
+total$GarageQual[is.na(total$GarageQual )] <- 'None' 
+total$GarageQual <- as.factor(total$GarageQual)
+```
+
+```{r}
+total$GarageCond <- as.character(total$GarageCond )
+total$GarageCond[is.na(total$GarageCond )] <- 'None' 
+total$GarageCond <- as.factor(total$GarageCond)
+```
+
+```{r}
+total$PoolQC <- as.character(total$PoolQC )
+total$PoolQC[is.na(total$PoolQC )] <- 'None' 
+total$PoolQC <- as.factor(total$PoolQC)
+```
+
+```{r}
+total$Fence <- as.character(total$Fence )
+total$Fence[is.na(total$Fence )] <- 'None' 
+total$Fence <- as.factor(total$Fence)
+```
+
+```{r}
+total$MiscFeature <- as.character(total$MiscFeature )
+total$MiscFeature[is.na(total$MiscFeature )] <- 'None' 
+total$MiscFeature <- as.factor(total$MiscFeature)
+```
+
+
+####All missing values have either been imputed or filled with more meaningful values. 
+
+####Let's explore the variable year built and year remodeled. The data dictionary states that if the year built is different from year remodeled, then the house was remodeled. We will create another column, a binary value/flag for remodeled. 
+
+```{r}
+
+total$Remodel_flag <- "Yes"
+total[total$YearBuilt==total$YearRemodAdd,]$Remodel_flag <- "No"
+total$Remodel_flag <- as.factor(total$Remodel_flag)
+# Number of remodeled homes 
+ggplot(total, aes(x = factor(total$Remodel_flag))) + geom_bar(stat = "count") + xlab("Remodeled")
+
+# Percentage of remodeled homes 
+paste(round(sum(total$Remodel_flag == "Yes")/nrow(total)*100, 2), '%')
+
+```
+
+####Split data into train and test
+
+```{r}
+train <- total[1:1460,]
+test <- total[1461:2919,]
+```
+
+####                                  Exploratory data analysis plan 
+                            
+
+
+```{r}
+
+ggplot(train, aes(factor(OverallQual),YearBuilt)) + geom_boxplot() +xlab("Overall Quality")
+
+```
+####Most recently built homes have better overall quality. Overall quality rates the material and finish of homes. 
+
+
+```{r}
+
+ggplot(train, aes(factor(OverallCond),YearBuilt)) + geom_boxplot() +xlab("Overall Condition")
+
+```
+####The recently built homes have better Qverall Quality, but the Overall condition of these recently built homes is worse than the old homes. Newer built homes are of mediocre quality. 
+
+####Let's plot the correlation matrix of numeric variables in the dataset 
+
+```{r}
+
+train_num <- train[sapply(train,is.numeric)]
+
+#correlations <- cor(na.omit(train_num))
+#row_indic <- apply(correlations, 1, function(x) sum(x > 0.3 | x < -0.3) > 1)
+#correlations<- correlations[row_indic ,row_indic ]
+#corrplot(correlations, method="square")
+
+# Another way to visualize correlation matrix
+library(GGally)
+ggcorr(train_num, low = "steelblue", mid = "grey", high = "darkred")
+
+correlations <- cor(na.omit(train_num[2:37,]))
+
+```
+
+###Let's make some scatter plot for some of the high correlation variables. High correlation variables: 
+
+####OverallQual: Rates the overall material and finish of the house 1-10. 
+####YearBuilt: Year house was built
+####MasVnrArea: Masonary veener area in square feet
+####TotalBsmtSF: Total Square feet of basement Area
+####X1stFlrSF: First floor Square feet
+####GrLivArea: Ground Living Area
+####FullBath: Full Bathrooms above grade
+####TotRmsAbvGrd: Total rooms above grade (doesn't include bathrooms)
+####GarageCars: Size of garage in car capacity
+####GarageArea: Size of garage in square feet
+
+```{r}
+
+makeScatterplots <- function(dataframe,x.variable, y.variable, xlabel, ylabel){
+  p = ggplot(dataframe, aes_string(x=x.variable,y= y.variable)) + geom_point() + geom_smooth(method=lm, se=FALSE) + ylab(ylabel) + xlab(paste(xlabel,'\n', 'R-Squared:', round(cor(x.variable, y.variable), 2))) + theme_light() + scale_x_continuous(labels = comma) + scale_y_continuous(labels = comma)
+  return(p)
+}
+
+```
+
+```{r}
+makeScatterplots(train_num, train_num$YearBuilt, train_num$SalePrice, "Year Built", "Sale Price") 
+```
+####There are a few recently built homes that are outliers and have much higher sale price. 
+
+```{r}
+makeScatterplots(train_num, train_num$X1stFlrSF, train_num$SalePrice, "First floor Square feet", "Sale Price")
+```
+
+####A majority of homes are under $200,000 and Average square foot of first floor in homes is ~1163 sq.feet. 
+
+```{r}
+makeScatterplots(train_num, train_num$GrLivArea, train_num$SalePrice, "Ground Living Area", "Sale Price")
+```
+
+####Living areas tend to be around an average of 1500 sq.feet for most homes. 
+
+```{r}
+makeScatterplots(train_num, train_num$FullBath, train_num$SalePrice, "Full Bath", "Sale Price") 
+```
+
+```{r}
+makeScatterplots(train_num, train_num$TotRmsAbvGrd, train_num$SalePrice, "Total rooms above grade", "Sale Price")
+```
+
+```{r}
+makeScatterplots(train_num, train_num$GarageArea, train_num$SalePrice, "Garage Area", "Sale Price")
+```
+####The sale prices of home is higher for garage areas between 750 to 1000 sq.feet. However, there are a few outliers where sale price drops for homes where garage area is greater than ~1000 sq.feet. 
+
+
+```{r}
+
+ggplot(train, aes(x=YrSold, y=SalePrice)) + stat_summary(fun.y="mean", geom="bar")
+
+```
+
+####Notice the drop in average sale of home price in year 2008, the housing market bubble crashed when Case-Shiller home price index reported it's largest price drop. 
+
+
+###                                  Categorical Variables 
+
+####Let's make some barplots for categorical variables to get a deeper insight / understanding of our data. 
+
+```{r}
+
+makeBarplots <- function(dataframe,x.variable, xlabel, ylabel){
+  p = ggplot(dataframe, aes(x=factor(x.variable))) + geom_bar(stat = "count", width=0.7, fill="steelblue") + ylab(ylabel) + xlab(xlabel) + theme_light()
+  return(p)
+}
+
+```
+
+```{r}
+makeBarplots(train, train$MSZoning, "MSZoning", "Count")
+```
+####An overwhelming majority of homes are in Residential Low Density zone. 
+
+```{r}
+makeBarplots(train, train$Street, "Street", "Count")
+```
+
+```{r}
+makeBarplots(train, train$Alley, "Alley", "Count")
+```
+
+```{r}
+makeBarplots(train, train$LotShape, "Lot Shape", "Count")
+```
+
+```{r}
+makeBarplots(train, train$LandContour, "Land Contour", "Count")
+```
+
+```{r}
+
+ggplot(train, aes(x=factor(Neighborhood))) + geom_bar(stat = "count", width=0.7, fill="steelblue") + ylab("Neighborhoods") + xlab("Count") + theme_light() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+```
+
+```{r}
+ggplot(train, aes(x=factor(Neighborhood),y=SalePrice)) + stat_summary(fun.y="mean", geom="bar", fill="steelblue") + ylab("Neighborhoods") + xlab("Avg. Sale Price") + theme_light() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) + scale_y_continuous(labels = comma)
+```
+
+####Area around the Iowa University, neighborhoods of College Creek and just N. Ames, just north of the university have high concentration of homes. The more affluent neighborhoods are NorthRidge, NorthRidge Heights and Stone Brook. 
+
+```{r}
+makeBarplots(train, train$BldgType, "Building Type", "Count")
+```
+
+```{r}
+makeBarplots(train, train$HouseStyle, "House Style", "Count")
+```
+
+```{r}
+makeBarplots(train, train$SaleCondition, "Sale Condition", "Count")
+```
+
+
+####Let's plot our dependent variable sales price 
+```{r}
+summary(train$SalePrice)
+
+ggplot(data=train, aes(train$SalePrice)) + geom_histogram(col = "white") + theme_light() + xlim(20000, 800000) + xlab("Sale Price") + scale_x_continuous(labels = comma)
+
+```
+
+####Sale Price appears to be heavily skewed. We will log transform the variable to obtain a normal distribution of our dependent variable. This is to maintain positivity of the sale price variable, in all likelihood, sale price of a home will never be a negative value. 
+
+```{r}
+
+ggplot(data=train, aes(log(train$SalePrice))) + geom_histogram(col = "white") + theme_light() + xlab("Sale Price") 
+
+```
+
+#### Before we get into building models, we will holdout the data from train set with sale price to be able to compare observed values with predictions. 
+
+```{r}
+response <- train$SalePrice
+
+train_dummy <- dummy.data.frame(train, sep = ".", all = TRUE)
+#names(train_dummy)
+
+split <- createDataPartition(y=response,
+                                 p=.5,
+                                 list=F)
+training <- train_dummy[split,]
+testing <- train_dummy[-split,]
+
+#str(training)
+```
+
+
+
+###                                 Let's build some advanced regression models. 
+
+####First, we will build a simple linear regression to get a feel for the variables and relationship. 
+```{r}
+
+model.lm <- lm(log(SalePrice + 1) ~ ., data = training)
+summary(model.lm)
+
+```
+
+####Our R-Squared of 0.93 is not bad at all. Looking at the coefficients and their corresponding values, we see there
+####are lots of predictors that we can drop or are not significant. The F-Statistic of 45 shows that there is relationship between the response variable - 'SalePrice' and predictors. 
+
+####Quick side note: Referencing and cross checking, highly correlated variables with SalePrice in our correlation plot above and simple linear regression, we can be assured that the highly correlated variables are indeed significant variables.
+
+####We noticed in our linear regression output that some variables are set to NA. These are set to NA as they don't add any extra value because of multi-collinearity. 
+
+####Our model spits out 307 predictor variables, that's a lot of variables to sort through and drop non-significant one's. 
+
+
+####Let's perform PCA to reduce some of the features from our model.
+
+```{r}
+# Principal component analysis
+
+# PCA works well on normalized dataset.
+# This is because there could be large loadings due to the way variables are measured.
+#training.scaled <- data.frame(apply(training, 2, scale))
+
+# Remove missing values or NAs
+# sum(is.na(training.scaled))
+#training.scale.na.omit <- data.frame(t(na.omit(t(training.scaled))))
+
+# Run PCA
+#training_pca <- prcomp(training.scale.na.omit, retx=TRUE)
+#names(training_pca)
+#training_pca$center
+#training_pca$scale
+#training_pca$rotation
+#dim(training_pca$x)
+
+```
+####This returns 286 principal component loadings.
+####The maximum number of principal component loadings is a minimum of (n-1, p).
+
+```{r}
+
+# Plot
+#biplot(training_pca, choices=1:2, scale = 0)
+
+```
+
+```{r}
+#summary(training_pca)
+```
+
+####The 1 PC explains 6.8%, 2 PC explains 3.1% of variance in the data and so on. 
+
+```{r}
+
+# Calculate Variance
+#pr_var <- training_pca$sdev^2
+
+#plot(pr_var, type = "l", xlab = "Princiapl Components", ylab = "Proportion of Variance explained")
+
+#training_pca$rotation
+```
+
+####The plot method returns a plot of the variances (y-axis) associated with the PCs (x-axis). The Figure below is useful to decide how many PCs to retain for further analysis. 
+
+####The plot above shows that ~40 Principal components explain most of the variance (80% +) in the data. PCA has helped us reduce 307 explanatory variables to 40 without compromising on variance.
+
+####Now that we've computed the Principal components on training data, we will use these components to predict on test data. 
+
+```{r}
+# Transformation similar to training set. 
+
+#Add a training set with principal components 
+#training.data.pca <- data.frame(training$SalePrice, training_pca$x)
+
+# Extract first 40 Principal Components 
+#training.data.pca <- training.data.pca[,1:40] 
+
+```
+
+####Run a linear regression with PCA transformed data 
+
+#### As I was researching some of the regression techniques that I can apply on PCA transformed data, turns out there are some other techniques that we can possibly utilize. See more details in the response to the question:  http://stats.stackexchange.com/questions/269032/pca-transformed-data-and-regression. 
+
+#### We will use the Partial Least Squares Regression which combines PCA and Regression with loadings that are also highly correlated with the response variable. Since, we are interested in predicting SalePrice, PCR seems like a more logical choice. 
+
+```{r}
+#require(pls)
+
+#pcr.model <- pcr(SalePrice ~ ., data = train, scale = TRUE, validation = "CV")
+#summary(pcr.model)
+
+```
+
+```{r}
+response1 <- train$SalePrice
+
+split <- createDataPartition(y=response1,
+                                 p=.5,
+                                 list=F)
+training1 <- train[split,]
+testing1 <- train[-split,]
+
+```
+
+
+#### Feature Engineering, based on some documentation on ridge vs lasso here and elsewhere, http://stats.stackexchange.com/questions/866/when-should-i-use-lasso-vs-ridge, we will try lasso for feature selection. Given that we have a large number of parameter estimates and as our results from simple linear regression indicate that not all variables are correlated with the response variable SalePrice. Lasso seems to be an appropriate choice here for feature engineering/selection. 
+
+```{r}
+library(glmnet)
+
+train1 = training1[,2:81]
+train1$SalePrice = log(train1$SalePrice)
+#str(train1)
+
+# glmnet requires a matrix of predictors and a response variable
+
+x = model.matrix(SalePrice ~., data = train1)
+#dim(x)
+
+y = train1$SalePrice
+
+```
+
+Cross Validation to find optimal value of Lambda. CV is a predictive criterion that evaluates the sample performance by splitting the sample into training and validation sets and choosing the value of lambda with which the error of prediction is minimal. 
+
+```{r}
+
+cv.lasso <- cv.glmnet(x, y)
+print(cv.lasso)
+plot(cv.lasso)
+
+```
+
+The plot indicates the different lambda values that were tried and the mean squared error. (Different between estimator and estimated). The two lines indicate the minimum lambda value and the regularized lambda value which is within the 1 standard error or minimum lambda value. 
+
+```{r}
+# Optimal Lambda
+penalty <- cv.lasso$lambda.1se
+
+# Fit lasso with minimal lambda value
+fit1 <-glmnet(x, y, alpha = 1, lambda = penalty) 
+coef(fit1)
+
+```
+
+#### Make Predictions using the Lambda values on test data 
+```{r}
+# First convert test data into a matrix
+test1 = testing1[,2:81]
+test1$SalePrice = log(test1$SalePrice)
+
+test.x = model.matrix(SalePrice~., data = test1)
+#dim(test.x)
+
+results <-predict(fit1, newx = test.x, s=penalty, type="response")
+
+# summarize accuracy
+mse <- mean(results - test1$SalePrice)^2
+mse
+
+```
+
+Out of sample prediction on test dataset 
+```{r}
+
+```
+
+
+####Random Forest Regression model. 
+####http://stackoverflow.com/questions/32014311/pca-for-dimensionality-reduction-before-random-forest
+
+
+```{r}
+require(randomForest)
+
+rf.model <- randomForest(SalePrice ~ ., data = training1, ntree = 500, replace = TRUE)
+summary(rf.model)
+
+
+
+```
+
