@@ -6,7 +6,7 @@ html_document: default
 ---
 
 ---
-####Predict sale price of the home based on available features of the home in the dataset 
+Predict sale price of the home based on available features of the home in the dataset 
 ---
 
 ```{r}
@@ -32,7 +32,7 @@ str(train)
 
 ```
 
-####The categorical variables are stored as factors in our dataframe. 
+The categorical variables are stored as factors in our dataframe. 
 
 ```{r}
 # Combine Train and Test datasets 
@@ -68,11 +68,10 @@ ggplot_missing(total)
 missing <- colSums(sapply(total, is.na))
 missing
 ```
-###Data Cleaning Plan 
+Data Cleaning Plan 
+Let's look at each missing variables.
 
-####Let's look at each missing variables.
-
-####LotFrontage: 486 values missing. Linear feet of the street connected to property. Lot frontage, ideally, should ####correlate with Lot Area. Also, check the lot shape and configuration of missing values. 
+LotFrontage: 486 values missing. Linear feet of the street connected to property. Lot frontage, ideally, should ####correlate with Lot Area. Also, check the lot shape and configuration of missing values. 
 
 ```{r}
 lotfront <- c("Id","LotFrontage","LotArea","LotShape","LotConfig")
@@ -90,8 +89,7 @@ plot(lotfrontdata_na$LotFrontage, lotfrontdata_na$LotArea)
 cor(lotfrontdata_na$LotFrontage, sqrt(lotfrontdata_na$LotArea))
 
 ```
-
-####We see a slightly stronger correlation with Sq. root of Lot Area. However, the correlation is not very strong. We will substitute NAs for LotFrontage with mean value. 
+We see a slightly stronger correlation with Sq. root of Lot Area. However, the correlation is not very strong. We will substitute NAs for LotFrontage with mean value. 
 
 ```{r}
 
@@ -99,18 +97,18 @@ total$LotFrontage[is.na(total$LotFrontage)] <- round(mean(total$LotFrontage, na.
 
 ```
 
-###                             Categorical Missing Variables. 
+                             Categorical Missing Variables. 
                                 
-####Some homes / properties do not have alley access. 
+Some homes / properties do not have alley access. 
 ```{r}
 total$Alley <- as.character(total$Alley)
 total$Alley[is.na(total$Alley)] <- 'None'
 total$Alley <- as.factor(total$Alley)
 ```
+MasVnrType: Masonry veneer walls consist of a single non-structural external layer of masonry work, typically brick, backed by an air space. Here NA means that Masonry veneer wall is not existent. 
 
-####MasVnrType: Masonry veneer walls consist of a single non-structural external layer of masonry work, typically brick, backed by an air space. Here NA means that Masonry veneer wall is not existent. 
+MasVnrType and MasVnrArea have corresponding values of NA. Therefore, we set NA as None and MasVnrArea as 0. 
 
-####MasVnrType and MasVnrArea have corresponding values of NA. Therefore, we set NA as None and MasVnrArea as 0. 
 ```{r}
 total$MasVnrType <- as.character(total$MasVnrType)
 total$MasVnrType[is.na(total$MasVnrType)] <- 'None' 
@@ -121,7 +119,7 @@ total$MasVnrArea[is.na(total$MasVnrArea)] <- '0'
 total$MasVnrArea <- as.numeric(total$MasVnrArea)
 ```
 
-####According to data dictionary, BsmtQual, BsmtCond, BsmtExposure, BsmtFinType1, BsmtFinType2, FireplaceQU = NA means that the properties or homes do not have a basement.
+According to data dictionary, BsmtQual, BsmtCond, BsmtExposure, BsmtFinType1, BsmtFinType2, FireplaceQU = NA means that the properties or homes do not have a basement.
 
 ```{r}
 total$BsmtQual <- as.character(total$BsmtQual)
@@ -213,10 +211,9 @@ total$MiscFeature[is.na(total$MiscFeature )] <- 'None'
 total$MiscFeature <- as.factor(total$MiscFeature)
 ```
 
+All missing values have either been imputed or filled with more meaningful values. 
 
-####All missing values have either been imputed or filled with more meaningful values. 
-
-####Let's explore the variable year built and year remodeled. The data dictionary states that if the year built is different from year remodeled, then the house was remodeled. We will create another column, a binary value/flag for remodeled. 
+Let's explore the variable year built and year remodeled. The data dictionary states that if the year built is different from year remodeled, then the house was remodeled. We will create another column, a binary value/flag for remodeled. 
 
 ```{r}
 
@@ -230,15 +227,13 @@ ggplot(total, aes(x = factor(total$Remodel_flag))) + geom_bar(stat = "count") + 
 paste(round(sum(total$Remodel_flag == "Yes")/nrow(total)*100, 2), '%')
 
 ```
-
-####Split data into train and test
+Split data into train and test
 
 ```{r}
 train <- total[1:1460,]
 test <- total[1461:2919,]
 ```
-
-####                                  Exploratory data analysis plan 
+                                  Exploratory data analysis plan 
                             
 
 
@@ -247,7 +242,7 @@ test <- total[1461:2919,]
 ggplot(train, aes(factor(OverallQual),YearBuilt)) + geom_boxplot() +xlab("Overall Quality")
 
 ```
-####Most recently built homes have better overall quality. Overall quality rates the material and finish of homes. 
+Most recently built homes have better overall quality. Overall quality rates the material and finish of homes. 
 
 
 ```{r}
@@ -255,9 +250,9 @@ ggplot(train, aes(factor(OverallQual),YearBuilt)) + geom_boxplot() +xlab("Overal
 ggplot(train, aes(factor(OverallCond),YearBuilt)) + geom_boxplot() +xlab("Overall Condition")
 
 ```
-####The recently built homes have better Qverall Quality, but the Overall condition of these recently built homes is worse than the old homes. Newer built homes are of mediocre quality. 
+The recently built homes have better Qverall Quality, but the Overall condition of these recently built homes is worse than the old homes. Newer built homes are of mediocre quality. 
 
-####Let's plot the correlation matrix of numeric variables in the dataset 
+Let's plot the correlation matrix of numeric variables in the dataset 
 
 ```{r}
 
@@ -275,19 +270,18 @@ ggcorr(train_num, low = "steelblue", mid = "grey", high = "darkred")
 correlations <- cor(na.omit(train_num[2:37,]))
 
 ```
+Let's make some scatter plot for some of the high correlation variables. High correlation variables: 
 
-###Let's make some scatter plot for some of the high correlation variables. High correlation variables: 
-
-####OverallQual: Rates the overall material and finish of the house 1-10. 
-####YearBuilt: Year house was built
-####MasVnrArea: Masonary veener area in square feet
-####TotalBsmtSF: Total Square feet of basement Area
-####X1stFlrSF: First floor Square feet
-####GrLivArea: Ground Living Area
-####FullBath: Full Bathrooms above grade
-####TotRmsAbvGrd: Total rooms above grade (doesn't include bathrooms)
-####GarageCars: Size of garage in car capacity
-####GarageArea: Size of garage in square feet
+OverallQual: Rates the overall material and finish of the house 1-10. 
+YearBuilt: Year house was built
+MasVnrArea: Masonary veener area in square feet
+TotalBsmtSF: Total Square feet of basement Area
+X1stFlrSF: First floor Square feet
+GrLivArea: Ground Living Area
+FullBath: Full Bathrooms above grade
+TotRmsAbvGrd: Total rooms above grade (doesn't include bathrooms)
+GarageCars: Size of garage in car capacity
+GarageArea: Size of garage in square feet
 
 ```{r}
 
@@ -301,19 +295,19 @@ makeScatterplots <- function(dataframe,x.variable, y.variable, xlabel, ylabel){
 ```{r}
 makeScatterplots(train_num, train_num$YearBuilt, train_num$SalePrice, "Year Built", "Sale Price") 
 ```
-####There are a few recently built homes that are outliers and have much higher sale price. 
+There are a few recently built homes that are outliers and have much higher sale price. 
 
 ```{r}
 makeScatterplots(train_num, train_num$X1stFlrSF, train_num$SalePrice, "First floor Square feet", "Sale Price")
 ```
 
-####A majority of homes are under $200,000 and Average square foot of first floor in homes is ~1163 sq.feet. 
+A majority of homes are under $200,000 and Average square foot of first floor in homes is ~1163 sq.feet. 
 
 ```{r}
 makeScatterplots(train_num, train_num$GrLivArea, train_num$SalePrice, "Ground Living Area", "Sale Price")
 ```
 
-####Living areas tend to be around an average of 1500 sq.feet for most homes. 
+Living areas tend to be around an average of 1500 sq.feet for most homes. 
 
 ```{r}
 makeScatterplots(train_num, train_num$FullBath, train_num$SalePrice, "Full Bath", "Sale Price") 
@@ -326,7 +320,7 @@ makeScatterplots(train_num, train_num$TotRmsAbvGrd, train_num$SalePrice, "Total 
 ```{r}
 makeScatterplots(train_num, train_num$GarageArea, train_num$SalePrice, "Garage Area", "Sale Price")
 ```
-####The sale prices of home is higher for garage areas between 750 to 1000 sq.feet. However, there are a few outliers where sale price drops for homes where garage area is greater than ~1000 sq.feet. 
+The sale prices of home is higher for garage areas between 750 to 1000 sq.feet. However, there are a few outliers where sale price drops for homes where garage area is greater than ~1000 sq.feet. 
 
 
 ```{r}
@@ -334,13 +328,12 @@ makeScatterplots(train_num, train_num$GarageArea, train_num$SalePrice, "Garage A
 ggplot(train, aes(x=YrSold, y=SalePrice)) + stat_summary(fun.y="mean", geom="bar")
 
 ```
+Notice the drop in average sale of home price in year 2008, the housing market bubble crashed when Case-Shiller home price index reported it's largest price drop. 
 
-####Notice the drop in average sale of home price in year 2008, the housing market bubble crashed when Case-Shiller home price index reported it's largest price drop. 
 
+                                  Categorical Variables 
 
-###                                  Categorical Variables 
-
-####Let's make some barplots for categorical variables to get a deeper insight / understanding of our data. 
+Let's make some barplots for categorical variables to get a deeper insight / understanding of our data. 
 
 ```{r}
 
@@ -354,7 +347,7 @@ makeBarplots <- function(dataframe,x.variable, xlabel, ylabel){
 ```{r}
 makeBarplots(train, train$MSZoning, "MSZoning", "Count")
 ```
-####An overwhelming majority of homes are in Residential Low Density zone. 
+An overwhelming majority of homes are in Residential Low Density zone. 
 
 ```{r}
 makeBarplots(train, train$Street, "Street", "Count")
@@ -382,7 +375,7 @@ ggplot(train, aes(x=factor(Neighborhood))) + geom_bar(stat = "count", width=0.7,
 ggplot(train, aes(x=factor(Neighborhood),y=SalePrice)) + stat_summary(fun.y="mean", geom="bar", fill="steelblue") + ylab("Neighborhoods") + xlab("Avg. Sale Price") + theme_light() + theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) + scale_y_continuous(labels = comma)
 ```
 
-####Area around the Iowa University, neighborhoods of College Creek and just N. Ames, just north of the university have high concentration of homes. The more affluent neighborhoods are NorthRidge, NorthRidge Heights and Stone Brook. 
+Area around the Iowa University, neighborhoods of College Creek and just N. Ames, just north of the university have high concentration of homes. The more affluent neighborhoods are NorthRidge, NorthRidge Heights and Stone Brook. 
 
 ```{r}
 makeBarplots(train, train$BldgType, "Building Type", "Count")
@@ -396,8 +389,8 @@ makeBarplots(train, train$HouseStyle, "House Style", "Count")
 makeBarplots(train, train$SaleCondition, "Sale Condition", "Count")
 ```
 
+Let's plot our dependent variable sales price 
 
-####Let's plot our dependent variable sales price 
 ```{r}
 summary(train$SalePrice)
 
@@ -405,15 +398,14 @@ ggplot(data=train, aes(train$SalePrice)) + geom_histogram(col = "white") + theme
 
 ```
 
-####Sale Price appears to be heavily skewed. We will log transform the variable to obtain a normal distribution of our dependent variable. This is to maintain positivity of the sale price variable, in all likelihood, sale price of a home will never be a negative value. 
+Sale Price appears to be heavily skewed. We will log transform the variable to obtain a normal distribution of our dependent variable. This is to maintain positivity of the sale price variable, in all likelihood, sale price of a home will never be a negative value. 
 
 ```{r}
 
 ggplot(data=train, aes(log(train$SalePrice))) + geom_histogram(col = "white") + theme_light() + xlab("Sale Price") 
 
 ```
-
-#### Before we get into building models, we will holdout the data from train set with sale price to be able to compare observed values with predictions. 
+Before we get into building models, we will holdout the data from train set with sale price to be able to compare observed values with predictions. 
 
 ```{r}
 response <- train$SalePrice
@@ -432,9 +424,9 @@ testing <- train_dummy[-split,]
 
 
 
-###                                 Let's build some advanced regression models. 
+                                 Let's build some advanced regression models. 
 
-####First, we will build a simple linear regression to get a feel for the variables and relationship. 
+First, we will build a simple linear regression to get a feel for the variables and relationship. 
 ```{r}
 
 model.lm <- lm(log(SalePrice + 1) ~ ., data = training)
@@ -442,17 +434,16 @@ summary(model.lm)
 
 ```
 
-####Our R-Squared of 0.93 is not bad at all. Looking at the coefficients and their corresponding values, we see there
-####are lots of predictors that we can drop or are not significant. The F-Statistic of 45 shows that there is relationship between the response variable - 'SalePrice' and predictors. 
+Our R-Squared of 0.93 is not bad at all. Looking at the coefficients and their corresponding values, we see there
+are lots of predictors that we can drop or are not significant. The F-Statistic of 45 shows that there is relationship between the response variable - 'SalePrice' and predictors. 
 
-####Quick side note: Referencing and cross checking, highly correlated variables with SalePrice in our correlation plot above and simple linear regression, we can be assured that the highly correlated variables are indeed significant variables.
+Quick side note: Referencing and cross checking, highly correlated variables with SalePrice in our correlation plot above and simple linear regression, we can be assured that the highly correlated variables are indeed significant variables.
 
-####We noticed in our linear regression output that some variables are set to NA. These are set to NA as they don't add any extra value because of multi-collinearity. 
+We noticed in our linear regression output that some variables are set to NA. These are set to NA as they don't add any extra value because of multi-collinearity. 
 
-####Our model spits out 307 predictor variables, that's a lot of variables to sort through and drop non-significant one's. 
+Our model spits out 307 predictor variables, that's a lot of variables to sort through and drop non-significant one's. 
 
-
-####Let's perform PCA to reduce some of the features from our model.
+Let's perform PCA to reduce some of the features from our model.
 
 ```{r}
 # Principal component analysis
@@ -474,8 +465,9 @@ summary(model.lm)
 #dim(training_pca$x)
 
 ```
-####This returns 286 principal component loadings.
-####The maximum number of principal component loadings is a minimum of (n-1, p).
+
+This returns 286 principal component loadings.
+The maximum number of principal component loadings is a minimum of (n-1, p).
 
 ```{r}
 
@@ -488,7 +480,7 @@ summary(model.lm)
 #summary(training_pca)
 ```
 
-####The 1 PC explains 6.8%, 2 PC explains 3.1% of variance in the data and so on. 
+The 1 PC explains 6.8%, 2 PC explains 3.1% of variance in the data and so on. 
 
 ```{r}
 
@@ -500,11 +492,11 @@ summary(model.lm)
 #training_pca$rotation
 ```
 
-####The plot method returns a plot of the variances (y-axis) associated with the PCs (x-axis). The Figure below is useful to decide how many PCs to retain for further analysis. 
+The plot method returns a plot of the variances (y-axis) associated with the PCs (x-axis). The Figure below is useful to decide how many PCs to retain for further analysis. 
 
-####The plot above shows that ~40 Principal components explain most of the variance (80% +) in the data. PCA has helped us reduce 307 explanatory variables to 40 without compromising on variance.
+The plot above shows that ~40 Principal components explain most of the variance (80% +) in the data. PCA has helped us reduce 307 explanatory variables to 40 without compromising on variance.
 
-####Now that we've computed the Principal components on training data, we will use these components to predict on test data. 
+Now that we've computed the Principal components on training data, we will use these components to predict on test data. 
 
 ```{r}
 # Transformation similar to training set. 
@@ -517,11 +509,11 @@ summary(model.lm)
 
 ```
 
-####Run a linear regression with PCA transformed data 
+Run a linear regression with PCA transformed data 
 
-#### As I was researching some of the regression techniques that I can apply on PCA transformed data, turns out there are some other techniques that we can possibly utilize. See more details in the response to the question:  http://stats.stackexchange.com/questions/269032/pca-transformed-data-and-regression. 
+As I was researching some of the regression techniques that I can apply on PCA transformed data, turns out there are some other techniques that we can possibly utilize. See more details in the response to the question:  http://stats.stackexchange.com/questions/269032/pca-transformed-data-and-regression. 
 
-#### We will use the Partial Least Squares Regression which combines PCA and Regression with loadings that are also highly correlated with the response variable. Since, we are interested in predicting SalePrice, PCR seems like a more logical choice. 
+We will use the Partial Least Squares Regression which combines PCA and Regression with loadings that are also highly correlated with the response variable. Since, we are interested in predicting SalePrice, PCR seems like a more logical choice. 
 
 ```{r}
 #require(pls)
@@ -543,7 +535,7 @@ testing1 <- train[-split,]
 ```
 
 
-#### Feature Engineering, based on some documentation on ridge vs lasso here and elsewhere, http://stats.stackexchange.com/questions/866/when-should-i-use-lasso-vs-ridge, we will try lasso for feature selection. Given that we have a large number of parameter estimates and as our results from simple linear regression indicate that not all variables are correlated with the response variable SalePrice. Lasso seems to be an appropriate choice here for feature engineering/selection. 
+Feature Engineering, based on some documentation on ridge vs lasso here and elsewhere, http://stats.stackexchange.com/questions/866/when-should-i-use-lasso-vs-ridge, we will try lasso for feature selection. Given that we have a large number of parameter estimates and as our results from simple linear regression indicate that not all variables are correlated with the response variable SalePrice. Lasso seems to be an appropriate choice here for feature engineering/selection. 
 
 ```{r}
 library(glmnet)
@@ -583,7 +575,8 @@ coef(fit1)
 
 ```
 
-#### Make Predictions using the Lambda values on test data 
+Make Predictions using the Lambda values on test data 
+
 ```{r}
 # First convert test data into a matrix
 test1 = testing1[,2:81]
@@ -606,8 +599,8 @@ Out of sample prediction on test dataset
 ```
 
 
-####Random Forest Regression model. 
-####http://stackoverflow.com/questions/32014311/pca-for-dimensionality-reduction-before-random-forest
+Random Forest Regression model. 
+http://stackoverflow.com/questions/32014311/pca-for-dimensionality-reduction-before-random-forest
 
 
 ```{r}
